@@ -1,0 +1,9 @@
+torch>=2.1
+torchvision>=0.16
+open_clip_torch>=2.24
+numpy
+pandas>=2.1
+pillow
+tqdm
+matplotlib
+jupyter

@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spherical Interpolation for Backward-Compatible Multimodal Representations</title>
+<meta name="description" content="Upgrade a contrastive vision-language model without re-encoding the gallery: orthogonal Procrustes alignment followed by spherical interpolation on the query side. NeurIPS 2026.">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="Spherical Interpolation for Backward-Compatible Multimodal Representations">
+<meta property="og:description" content="Backward-compatible upgrades of vision-language retrieval models through query-side orthogonal alignment and spherical interpolation, without retraining or gallery re-indexing. NeurIPS 2026.">
+<meta property="og:image" content="https://miccunifi.github.io/SLERP_backward_compatibility/static/videos/slerp-overview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="citation_title" content="Spherical Interpolation for Backward-Compatible Multimodal Representations">
+<meta name="citation_author" content="Ricci, Simone">
+<meta name="citation_author" content="Biondi, Niccolò">
+<meta name="citation_author" content="Pernici, Federico">
+<meta name="citation_conference_title" content="Advances in Neural Information Processing Systems">
+<meta name="citation_publication_date" content="2026">
+<meta name="citation_pdf_url" content="https://arxiv.org/pdf/2609.39836">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23e6f0fa' stroke='%233a86c8' stroke-width='3'/%3E%3Cpath d='M14 40 Q32 50 50 36' fill='none' stroke='%232e9c8a' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='14' cy='40' r='5' fill='%23d08a2e'/%3E%3Ccircle cx='50' cy='36' r='5' fill='%233a86c8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
+<style>
+:root {
+  --bg: #faf6ee;
+  --surface: #fffdf9;
+  --ink: #1e2b3a;
+  --muted: #5f6b7b;
+  --faint: #9aa4b1;
+  --line: #e9e1d2;
+  --blue: #3a86c8;
+  --blue-deep: #245f96;
+  --blue-soft: #e6f0fa;
+  --old: #d08a2e;
+  --old-soft: #fbeedb;
+  --q: #2e9c8a;
+  --q-soft: #e1f3ef;
+  --star: #7b5fc6;
+  --good: #3e9b6a;
+  --bad: #c9563f;
+  --shadow: 0 1px 2px rgba(60, 50, 30, .05), 0 12px 32px rgba(60, 50, 30, .06);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.65 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+a { color: var(--blue-deep); }
+header { padding: 64px 0 30px; text-align: center; }
+.venue {
+  display: inline-block;
+  font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--blue-deep); background: var(--blue-soft); border: 1px solid #cfe1f3;
+  padding: 4px 13px; border-radius: 999px;
+}
+h1 {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.14;
+  margin: 18px auto 10px;
+  max-width: 860px;
+  letter-spacing: -.012em;
+}
+.subtitle { font-family: "Source Serif 4", Georgia, serif; font-style: italic; color: var(--muted); font-size: 20px; margin: 0 auto 26px; max-width: 720px; line-height: 1.5; }
+.subtitle b { color: var(--blue); font-weight: 500; }
+.authors { margin: 0 auto; font-size: 17px; }
+.authors a, .authors span { display: inline-block; margin: 2px 12px; white-space: nowrap; color: var(--ink); text-decoration: none; }
+.authors a:hover { color: var(--blue-deep); text-decoration: underline; }
+sup { font-size: .68em; color: var(--muted); }
+.affil { color: var(--muted); font-size: 14.5px; margin-top: 10px; }
+.affil span { display: inline-block; margin: 0 10px; }
+.links { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--bg);
+  text-decoration: none; font-weight: 500; font-size: 15px;
+  transition: background .15s;
+}
+.btn:hover { background: var(--blue-deep); }
+.btn svg { width: 17px; height: 17px; fill: currentColor; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 14px; }
+figure { margin: 0; }
+.card img { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; }
+figcaption { color: var(--muted); font-size: 14.5px; margin-top: 12px; line-height: 1.55; }
+video { display: block; width: 100%; height: auto; border-radius: 10px; background: var(--bg); }
+.vid { position: relative; }
+.pp { position: absolute; right: 12px; bottom: 12px; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(30, 43, 58, .62); color: #fff; font-size: 14px; cursor: pointer; opacity: .75; }
+.pp:hover, .pp:focus-visible { opacity: 1; }
+.tldr { font-size: 18px; text-align: center; max-width: 800px; margin: 26px auto 0; }
+.tldr b { color: var(--blue-deep); }
+section { padding: 44px 0 6px; }
+h2 { font-family: "Source Serif 4", Georgia, serif; font-weight: 600; font-size: 28px; margin: 0 0 14px; letter-spacing: -.005em; }
+h3 { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--blue-deep); margin: 28px 0 10px; }
+p { margin: 0 0 14px; }
+.lead { font-size: 18px; }
+.muted { color: var(--muted); }
+.small { font-size: 14.5px; }
+.u { color: var(--old); font-weight: 600; }
+.v { color: var(--blue); font-weight: 600; }
+.qa { color: var(--q); font-weight: 600; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 22px 0 10px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+.step .n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--blue-soft); color: var(--blue-deep); font-weight: 700; font-size: 13px; margin-right: 8px; }
+.step b { font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--blue-deep); }
+.step p { margin: 8px 0 0; font-size: 15.5px; color: var(--muted); }
+.eq { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.theorem { background: #f3effb; border: 1px solid #ddd3f3; border-radius: 14px; padding: 16px 20px; margin: 18px 0; }
+.theorem b { color: var(--star); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 20px 0; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.stat .val { font-family: "Source Serif 4", Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.2; color: var(--ink); }
+.stat .val s { color: var(--faint); font-size: 20px; margin-right: 6px; text-decoration: none; }
+.stat .val s::after { content: " →"; }
+.stat .k { color: var(--muted); font-size: 14px; line-height: 1.45; margin-top: 4px; }
+
+/* interactive explorer */
+.explorer { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px 14px; margin-top: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: #fff; }
+.seg button { font: 500 14px Inter, sans-serif; border: 0; background: transparent; color: var(--muted); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--blue-soft); color: var(--blue-deep); font-weight: 600; }
+.seg button:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.ctl-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-right: 6px; }
+.slider-row { display: flex; align-items: center; gap: 14px; margin: 6px 0 2px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--q); }
+.readout { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.pill { font-size: 14px; border-radius: 999px; padding: 5px 12px; border: 1px solid var(--line); background: #fff; }
+.pill.ok { background: #e3f3ea; border-color: #c7e6d4; color: #2c7a51; }
+.pill.no { background: #fbe6e1; border-color: #f1c9bf; color: #a5432f; }
+#chart { width: 100%; height: auto; display: block; }
+#chart text { font-family: Inter, sans-serif; }
+
+/* tables */
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; font-variant-numeric: tabular-nums; min-width: 700px; }
+th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-weight: 600; color: var(--muted); font-size: 13.5px; }
+tr.grp td { background: #f6f1e6; font-weight: 600; color: var(--ink); font-size: 14px; text-align: left; }
+tr.ours td { font-weight: 600; background: var(--q-soft); }
+tr.ref td { color: var(--muted); }
+td .y::after { content: " ✓"; color: var(--good); font-weight: 700; }
+td .n::after { content: " ×"; color: var(--bad); font-weight: 700; }
+pre {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 18px; overflow-x: auto; margin: 0;
+  font: 13.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.ar, .stat .val s::after { font-family: KaTeX_Main, 'Times New Roman', serif; }
+.kw { color: #7b5fc6; } .fn { color: #245f96; } .cm { color: #8a94a3; font-style: italic; } .st { color: #2e7d6a; }
+.cite { position: relative; }
+.copy { position: absolute; top: 10px; right: 10px; font: 500 13px Inter, sans-serif; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+ul.clean { padding-left: 20px; margin: 0 0 14px; }
+ul.clean li { margin: 4px 0; }
+footer { color: var(--muted); font-size: 14px; text-align: center; padding: 52px 0 40px; }
+@media (max-width: 760px) {
+  header { padding-top: 40px; }
+  .steps, .two { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .card { padding: 8px; }
+  body { font-size: 16px; }
+  .explorer { padding: 14px 12px 10px; }
+  .stat { padding: 12px; }
+  .stat .val { font-size: 23px; white-space: nowrap; }
+  .stat .val s { font-size: 15px; margin-right: 3px; }
+  .eq .katex-display { font-size: .92em; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="venue">NeurIPS 2026</span>
+    <h1>Spherical Interpolation for Backward-Compatible Multimodal Representations</h1>
+    <p class="subtitle">Backward-compatible upgrades of vision-language retrieval models: orthogonal alignment of new-model queries, followed by spherical interpolation with the old-model query.</p>
+    <div class="authors">
+      <a href="https://scholar.google.com/citations?user=jtj_lhAAAAAJ">Simone Ricci<sup>1,2</sup></a>
+      <a href="https://scholar.google.com/citations?user=B7VHm9UAAAAJ">Niccolò Biondi<sup>3</sup></a>
+      <a href="https://scholar.google.com/citations?user=I8nFKUsAAAAJ">Federico Pernici<sup>1,2</sup></a>
+    </div>
+    <div class="affil">
+      <span><sup>1</sup>DINFO, University of Florence</span>
+      <span><sup>2</sup>MICC, University of Florence</span>
+      <span><sup>3</sup>University of Trento</span>
+    </div>
+    <div class="links">
+      <a class="btn" href="https://arxiv.org/pdf/2609.39836"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6zM14 3.5V8h4.5z"/></svg>Paper</a>
+      <a class="btn" href="https://arxiv.org/abs/2609.39836"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM8 8l8 8M16 8l-8 8" fill="none" stroke="currentColor" stroke-width="2"/></svg>arXiv</a>
+      <a class="btn" href="https://github.com/miccunifi/SLERP_backward_compatibility"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>Code</a>
+    </div>
+  </header>
+
+  <figure class="card">
+    <video autoplay muted loop playsinline preload="metadata" poster="static/videos/slerp-overview.jpg" aria-label="Animated overview of the paper: the upgrade problem, orthogonal alignment, spherical interpolation and results">
+      <source src="static/videos/slerp-overview.webm" type="video/webm">
+    </video>
+  </figure>
+  <p class="tldr"><b>TL;DR</b> When a retrieval gallery is indexed by an old vision-language model, we rotate new-model queries into the old space (orthogonal Procrustes), then query with a point on the spherical arc between the old and the aligned new query. A single weight, chosen on a support set, makes the upgrade backward-compatible in <b>85 of 90</b> evaluations (<b>45</b> with alignment alone), with no retraining and no re-indexing.</p>
+
+  <section id="abstract">
+    <h2>Abstract</h2>
+    <p>Contrastive vision-language models map visual and textual representations into a shared normalized embedding space, making cosine similarity the natural metric for cross-modal retrieval. A practical challenge arises during model upgrades: independently trained models generally produce incompatible representation spaces, so replacing a deployed model typically requires recomputing embeddings for the entire gallery, which is prohibitively expensive at scale. Orthogonal post-hoc alignment can partially mitigate this problem by mapping new-model queries into the old-model gallery space. However, because independently trained models can differ in fine-grained representation structure, the orthogonal alignment remains approximate, leaving a residual angular discrepancy between the old-model query and the aligned new-model query. We study whether interpolation along the spherical geodesic between these two normalized query representations can improve retrieval without re-indexing the gallery. We characterize when this path contains an interior query direction closer to an idealized retrieval-optimal direction than either endpoint, and connect this characterization to Recall@K through a local margin-based certification result. Experiments across multiple benchmarks and model families show that post-alignment spherical interpolation improves over orthogonal alignment alone, recovering backward-compatibility in most evaluated settings. Consistent with our geometric characterization, per-query oracle analysis shows that retrieval-favorable interior points occur frequently in practice.</p>
+  </section>
+
+  <section id="method">
+    <h2>Method</h2>
+    <p class="lead">The gallery stays encoded by the old model \(\phi_{\text{old}}\). Only queries change: each query is encoded by both models, the new embedding is rotated into the old space, and the two are blended along the sphere.</p>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><b>Align</b><p>Fit an orthogonal map \(R^\star\) from new to old embeddings on a support set (12,637 CC3M image–text pairs). It has a closed form via one SVD. We call this baseline <i>SVD</i>.</p></div>
+      <div class="step"><span class="n">2</span><b>Interpolate</b><p>For a query \(x\), move along the geodesic from the old query \(u=\phi_{\text{old}}(x)\) to the aligned new query \(v=\phi_{\text{new}}(x)R^\star\) with SLERP.</p></div>
+      <div class="step"><span class="n">3</span><b>Retrieve</b><p>Search the <i>unchanged</i> old-model gallery with \(q_{\hat\alpha}\). One weight \(\hat\alpha\) per retrieval direction, chosen on the support set.</p></div>
+    </div>
+    <div class="eq">$$R^\star=\mathop{\arg\min}_{R^\top R=I}\big\|\bar V R-U\big\|_F^2=P\,Q^\top,\qquad \bar V^\top U=P\,\Sigma\,Q^\top$$</div>
+    <div class="eq">$$q_\alpha=\frac{\sin\big((1-\alpha)\theta\big)}{\sin\theta}\,u+\frac{\sin(\alpha\theta)}{\sin\theta}\,v,\qquad \theta=\angle(u,v)$$</div>
+    <p>Because \(R^\star\) is a rotation, it keeps the new model's inner products intact. Independently trained models still differ in fine-grained structure, so a residual angle \(\theta\) remains between <span class="u">u</span> and <span class="v">v</span>. SLERP moves at constant angular speed, \(\angle(u,q_\alpha)=\alpha\theta\), so \(\alpha\) means the same fraction of the way from <span class="u">u</span> (\(\alpha=0\), old query) to <span class="v">v</span> (\(\alpha=1\), SVD) for every query.</p>
+
+    <h3>When can an interior point help?</h3>
+    <div class="two">
+      <div>
+        <p>Let \(q^\ast\) be an idealized retrieval-optimal query direction (used only for analysis), and let \(p\) be its projection onto the plane spanned by \(u\) and \(v\).</p>
+        <div class="theorem"><b>Theorem 1.</b> For \(\|p\|>0\), there is an \(\alpha^\ast\in(0,1)\) with \(\angle(q_{\alpha^\ast},q^\ast)<\min\{\angle(u,q^\ast),\angle(v,q^\ast)\}\) <i>if and only if</i> \(p/\|p\|\) lies strictly inside the arc from \(u\) to \(v\). Otherwise the best point on the arc is an endpoint.</div>
+        <p class="small muted">Appendix F connects this angular gap to Recall@K through a top-K margin bound. Empirically (Appendix M, Flickr30k, CLIP ViT-L/14 <span class="ar">→</span> ViT-B/32), the similarity to a relevant caption peaks strictly inside the arc for <b>99.87%</b> of the 31,014 image queries, and 1,408 queries reach Recall@1 <i>only</i> at interior weights.</p>
+      </div>
+      <figure class="card">
+        <img src="static/slerp_geometry.png" width="1126" height="305" alt="Four sphere diagrams of the interpolation plane: the minimizer of the angular gap is interior only when the normalized projection of q* lies on the arc between u and v." loading="lazy">
+        <figcaption>Geometry of SLERP in the interpolation plane (Fig. 2). A strict interior improvement occurs exactly when \(p/\|p\|\) lies in the relative interior of the arc; when \(p=0\) the angular gap is constant along it.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="explore">
+    <h2>Explore the interpolation path</h2>
+    <p>Recall along the geodesic for the <b>CLIP ViT-L/14 <span class="ar">→</span> CLIP ViT-B/32</b> upgrade. The gallery is always encoded by ViT-B/32 (old). \(\hat\alpha\) maximizes CC3M Recall@1 for the selected support modality and direction, and is then reused unchanged on every test set.</p>
+    <div class="explorer" id="explorer">
+      <div class="controls">
+        <span><span class="ctl-label">Test set</span><span class="seg" data-key="ds"><button data-v="flickr30k">Flickr30k</button><button data-v="coco">COCO</button><button data-v="nocaps">NoCaps</button><button data-v="cc3m">CC3M (support)</button></span></span>
+        <span><span class="ctl-label">Direction</span><span class="seg" data-key="dir"><button data-v="0">Image <span class="ar">→</span> text</button><button data-v="3">Text <span class="ar">→</span> image</button></span></span>
+        <span><span class="ctl-label">Support</span><span class="seg" data-key="sup"><button data-v="T">Text</button><button data-v="I">Image</button><button data-v="I+T">Both</button></span></span>
+        <span><span class="ctl-label">Metric</span><span class="seg" data-key="k"><button data-v="0">R@1</button><button data-v="1">R@5</button><button data-v="2">R@10</button></span></span>
+      </div>
+      <svg id="chart" viewBox="0 0 900 380" role="img" aria-label="Recall as a function of the SLERP weight alpha"></svg>
+      <div class="slider-row">
+        <span style="font:italic 600 18px 'Source Serif 4',serif">α</span>
+        <input id="alpha" type="range" min="0" max="10" step="1" value="7" aria-label="SLERP weight alpha">
+        <span id="alphaVal" style="font-weight:600;min-width:40px;text-align:right">0.7</span>
+      </div>
+      <div class="readout" id="readout" aria-live="polite"></div>
+      <p class="small muted" style="margin:10px 0 0">Values from <a href="https://github.com/miccunifi/SLERP_backward_compatibility/blob/main/results/l14_to_b32.csv"><code>results/l14_to_b32.csv</code></a> in the repository, which may differ from the paper by a few hundredths of a point.</p>
+    </div>
+  </section>
+
+  <section id="results">
+    <h2>Results</h2>
+    <p>Five upgrades (CLIP ViT-L/14 <span class="ar">→</span> ViT-B/32, CLIP ViT-H/14 <span class="ar">→</span> ViT-B/32, SigLIP2 <span class="ar">→</span> SigLIP1, SigLIP2 <span class="ar">→</span> CLIP ViT-B/32, SigLIP1 <span class="ar">→</span> CLIP ViT-H/14) on Flickr30k, COCO and NoCaps. An upgrade is backward-compatible when new-to-old retrieval beats the old system, \(M_{\text{new}\to\text{old}} > M_{\text{old}\to\text{old}}\).</p>
+    <div class="stats">
+      <div class="stat"><div class="val"><s>45</s>85 / 90</div><div class="k">compatible evaluations, SVD alone vs. SVD + SLERP (Recall@1)</div></div>
+      <div class="stat"><div class="val"><s>40.62</s>48.00</div><div class="k">Flickr30k I2T R@1, ViT-L/14 <span class="ar">→</span> ViT-B/32, zero gallery items re-encoded</div></div>
+      <div class="stat"><div class="val">91.1%</div><div class="k">of the gain of fully re-indexing the gallery (48.72) in that setting</div></div>
+      <div class="stat"><div class="val"><s>45.46</s>58.63</div><div class="k">SigLIP2 <span class="ar">→</span> SigLIP1: SVD breaks compatibility (old: 58.09), SLERP restores it</div></div>
+    </div>
+    <div class="scroll">
+    <table>
+      <thead>
+        <tr><th rowspan="2">Method · text-only support</th><th colspan="2">Flickr30k</th><th colspan="2">COCO</th><th colspan="2">NoCaps</th></tr>
+        <tr><th>I2T@1</th><th>T2I@1</th><th>I2T@1</th><th>T2I@1</th><th>I2T@1</th><th>T2I@1</th></tr>
+      </thead>
+      <tbody>
+        <tr class="grp"><td colspan="7">CLIP ViT-L/14 <span class="ar">→</span> CLIP ViT-B/32 &nbsp;<span class="muted" style="font-weight:400">same family</span></td></tr>
+        <tr class="ref"><td>Old model (ViT-B/32)</td><td>40.62</td><td>21.73</td><td>28.76</td><td>14.47</td><td>71.29</td><td>45.24</td></tr>
+        <tr><td>XBT <span class="muted">(compatibility training)</span></td><td><span class="y">42.47</span></td><td><span class="y">22.38</span></td><td><span class="y">30.73</span></td><td><span class="y">15.55</span></td><td><span class="y">75.02</span></td><td><span class="y">48.02</span></td></tr>
+        <tr><td>SVD</td><td><span class="y">42.89</span></td><td><span class="n">21.49</span></td><td><span class="y">30.27</span></td><td><span class="n">14.03</span></td><td><span class="n">69.22</span></td><td><span class="n">43.92</span></td></tr>
+        <tr class="ours"><td>+ SLERP (α̂ = 0.7 / 0.5)</td><td><span class="y">48.00</span></td><td><span class="y">23.33</span></td><td><span class="y">33.40</span></td><td><span class="y">15.26</span></td><td><span class="y">73.98</span></td><td><span class="y">46.59</span></td></tr>
+        <tr class="ref"><td>New model (ViT-L/14), re-indexed</td><td>48.72</td><td>28.27</td><td>34.33</td><td>18.68</td><td>73.36</td><td>47.84</td></tr>
+
+        <tr class="grp"><td colspan="7">SigLIP2 <span class="ar">→</span> SigLIP1 &nbsp;<span class="muted" style="font-weight:400">same family</span></td></tr>
+        <tr class="ref"><td>Old model (SigLIP1)</td><td>58.09</td><td>39.40</td><td>46.99</td><td>30.88</td><td>86.20</td><td>64.18</td></tr>
+        <tr><td>SVD</td><td><span class="n">45.46</span></td><td><span class="y">46.28</span></td><td><span class="n">36.30</span></td><td><span class="n">30.53</span></td><td><span class="n">75.00</span></td><td><span class="y">64.64</span></td></tr>
+        <tr class="ours"><td>+ SLERP (α̂ = 0.3 / 0.4)</td><td><span class="y">58.63</span></td><td><span class="y">45.99</span></td><td><span class="n">46.76</span></td><td><span class="y">32.50</span></td><td><span class="n">85.87</span></td><td><span class="y">66.59</span></td></tr>
+        <tr class="ref"><td>New model (SigLIP2), re-indexed</td><td>69.31</td><td>51.29</td><td>51.06</td><td>35.04</td><td>89.18</td><td>69.82</td></tr>
+
+        <tr class="grp"><td colspan="7">SigLIP2 <span class="ar">→</span> CLIP ViT-B/32 &nbsp;<span class="muted" style="font-weight:400">cross family</span></td></tr>
+        <tr class="ref"><td>Old model (ViT-B/32)</td><td>40.62</td><td>21.73</td><td>28.76</td><td>14.47</td><td>71.29</td><td>45.24</td></tr>
+        <tr><td>SVD</td><td><span class="y">42.80</span></td><td><span class="y">23.56</span></td><td><span class="y">32.33</span></td><td><span class="y">15.62</span></td><td><span class="y">72.16</span></td><td><span class="y">46.41</span></td></tr>
+        <tr class="ours"><td>+ SLERP (α̂ = 0.6 / 0.5)</td><td><span class="y">51.01</span></td><td><span class="y">25.79</span></td><td><span class="y">37.35</span></td><td><span class="y">17.18</span></td><td><span class="y">78.56</span></td><td><span class="y">50.59</span></td></tr>
+        <tr class="ref"><td>New model (SigLIP2), re-indexed</td><td>69.31</td><td>51.29</td><td>51.06</td><td>35.04</td><td>89.18</td><td>69.82</td></tr>
+
+        <tr class="grp"><td colspan="7">SigLIP1 <span class="ar">→</span> CLIP ViT-H/14 &nbsp;<span class="muted" style="font-weight:400">cross family, new model not uniformly stronger</span></td></tr>
+        <tr class="ref"><td>Old model (ViT-H/14)</td><td>59.38</td><td>43.07</td><td>43.50</td><td>28.56</td><td>84.27</td><td>63.53</td></tr>
+        <tr><td>SVD</td><td><span class="y">60.50</span></td><td><span class="n">29.91</span></td><td><span class="n">41.82</span></td><td><span class="n">23.18</span></td><td><span class="n">81.40</span></td><td><span class="n">56.13</span></td></tr>
+        <tr class="ours"><td>+ SLERP (α̂ = 0.5 / 0.1)</td><td><span class="y">64.81</span></td><td><span class="y">43.38</span></td><td><span class="y">46.56</span></td><td><span class="y">28.79</span></td><td><span class="y">85.89</span></td><td><span class="y">63.89</span></td></tr>
+        <tr class="ref"><td>New model (SigLIP1), re-indexed</td><td>58.09</td><td>39.40</td><td>46.99</td><td>30.88</td><td>86.20</td><td>64.18</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small muted" style="margin-top:10px">Recall@1 (%) with text-only Procrustes support, from Tables 1 and 2. ✓ / × mark backward compatibility against the old model. α̂ is selected on CC3M (I2T / T2I) and fixed across test sets. Image-only and joint supports, the CLIP ViT-H/14 <span class="ar">→</span> ViT-B/32 pair, Recall@5/10, the test-set oracle α* and zero-shot classification are in the paper.</p>
+
+    <h3>Where the gains come from</h3>
+    <ul class="clean">
+      <li><b>Combining the two endpoints does most of the work.</b> Even a fixed midpoint of the old and aligned queries improves mean Recall@1 by +4.75 over SVD and raises compatibility from 45 to 72 of 90. Choosing α̂ on the support set brings it to 85 of 90 (Appendix N).</li>
+      <li><b>The weight transfers.</b> α̂ chosen on CC3M lands close to each benchmark's own optimum α*, with no test-set tuning.</li>
+      <li><b>Cheap at deployment.</b> The overhead is on the query side only. With the two encoders on separate GPUs, or a cached old-model query, latency is within about 0.3 ms of a fully re-indexed system (10<sup>7</sup>-item gallery, Appendix P).</li>
+      <li><b>Useful during migration.</b> On Flickr30k (ViT-L/14 <span class="ar">→</span> ViT-B/32), SLERP reaches 48.00 R@1 without touching the gallery. Partial backfilling needs to re-encode 90% of the captions to reach 47.98.</li>
+      <li><b>Beyond compatibility.</b> SLERP often improves over the new model even when the gallery is re-indexed, and also helps zero-shot classification with fixed old-model text prototypes.</li>
+    </ul>
+  </section>
+
+  <section id="code">
+    <h2>Implementation</h2>
+    <p>The method consists of two functions in PyTorch (see <a href="https://github.com/miccunifi/SLERP_backward_compatibility/blob/main/slerp_bc/method.py"><code>slerp_bc/method.py</code></a>).</p>
+<pre><code><span class="kw">def</span> <span class="fn">procrustes</span>(V_new, U_old):
+    <span class="cm"># argmin_R ||V_new R - U_old||_F  s.t.  R orthogonal  (closed form)</span>
+    P, _, Qt = torch.linalg.svd(V_new.T @ U_old, full_matrices=<span class="kw">False</span>)
+    <span class="kw">return</span> P @ Qt
+
+<span class="kw">def</span> <span class="fn">slerp</span>(u, v, alpha, eps=<span class="st">1e-7</span>):
+    u, v = F.normalize(u, dim=-<span class="st">1</span>), F.normalize(v, dim=-<span class="st">1</span>)
+    theta = torch.acos((u * v).sum(-<span class="st">1</span>, keepdim=<span class="kw">True</span>).clamp(-<span class="st">1</span> + eps, <span class="st">1</span> - eps))
+    q = (torch.sin((<span class="st">1</span> - alpha) * theta) * u + torch.sin(alpha * theta) * v) / torch.sin(theta)
+    <span class="kw">return</span> F.normalize(q, dim=-<span class="st">1</span>)
+
+d = max(V_support.shape[<span class="st">1</span>], U_support.shape[<span class="st">1</span>])
+pad = <span class="kw">lambda</span> x: F.pad(x, (<span class="st">0</span>, d - x.shape[-<span class="st">1</span>]))   <span class="cm"># zero-pads the old space when d_new > d_old</span>
+R = procrustes(V_support, pad(U_support))      <span class="cm"># new -> old, fitted once on the support set</span>
+q = slerp(pad(old_query_emb), new_query_emb @ R, alpha=alpha_hat)
+scores = q @ pad(old_gallery).T                <span class="cm"># = q[:, :d_old] @ old_gallery.T: the gallery is untouched</span></code></pre>
+    <p class="small muted" style="margin-top:10px">Zero-padding keeps \(R^\star\) square when the new model has more dimensions (e.g. 768 <span class="ar">→</span> 512). Scores only depend on the original old-model coordinates.</p>
+  </section>
+
+  <section id="limitations">
+    <h2>Limitations</h2>
+    <ul class="clean">
+      <li>Both encoders (or a cached old-model query embedding) are needed at query time. This overhead does not grow with gallery size.</li>
+      <li>The interpolation weight must be chosen on data, either a support set or a small labeled subset of the target distribution (Appendix K).</li>
+      <li>Performance is bounded by the two endpoints and the Procrustes map: interpolation cannot add information that neither model has.</li>
+    </ul>
+  </section>
+
+  <section id="citation">
+    <h2>Citation</h2>
+<div class="cite"><button class="copy" type="button">Copy</button>
+<pre id="bib">@inproceedings{ricci2026spherical,
+  title     = {Spherical Interpolation for Backward-Compatible Multimodal Representations},
+  author    = {Ricci, Simone and Biondi, Niccol{\`o} and Pernici, Federico},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {39},
+  year      = {2026}
+}</pre></div>
+  </section>
+
+  <footer>Media Integration and Communication Center (MICC), University of Florence · University of Trento<br><span class="small">Contact: <a href="mailto:simone.ricci@unifi.it">simone.ricci@unifi.it</a></span></footer>
+</div>
+
+<script>
+// play / pause control on the overview video (respects reduced-motion preferences)
+document.querySelectorAll('video').forEach(v => {
+  const box = document.createElement('div'), b = document.createElement('button');
+  box.className = 'vid'; b.className = 'pp'; b.type = 'button';
+  v.replaceWith(box); box.append(v, b);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { v.removeAttribute('autoplay'); v.pause(); }
+  const sync = () => { b.textContent = v.paused ? '▶' : '❚❚'; b.ariaLabel = v.paused ? 'Play video' : 'Pause video'; };
+  b.onclick = () => (v.paused ? v.play() : v.pause());
+  v.onplay = v.onpause = sync; sync();
+});
+document.querySelector('.copy').onclick = function () {
+  navigator.clipboard.writeText(document.getElementById('bib').textContent).then(() => { this.textContent = 'Copied'; });
+};
+
+/* ---------------------------------------------------------------------------------------------
+ * Interactive explorer. Data: results/l14_to_b32.csv (CLIP ViT-L/14 -> CLIP ViT-B/32).
+ * D[dataset] = { old: [...], new: [...], T|I|I+T: 11 x [...] } with metrics
+ * [I2T R@1, I2T R@5, I2T R@10, T2I R@1, T2I R@5, T2I R@10] and alpha = 0, 0.1, ..., 1.
+ * ------------------------------------------------------------------------------------------- */
+const D = {"cc3m":{"old":[33.28,56.15,64.75,32.11,55.04,63.6],"new":[40.39,62.7,70.49,39.5,61.04,68.76],"T":[[33.28,56.15,64.75,32.11,55.04,63.6],[35.08,57.81,66.18,32.67,55.87,64.6],[36.52,59.29,67.38,33.01,56.27,65.17],[37.56,60.17,68.32,33.29,56.67,65.52],[38.17,60.77,69.0,33.44,56.84,65.63],[38.56,60.97,69.26,33.48,56.83,65.56],[38.6,61.18,69.42,33.3,56.54,65.41],[38.68,60.84,69.22,32.97,56.3,65.21],[38.19,60.34,68.51,32.61,55.76,64.78],[37.21,59.18,67.72,32.15,55.04,64.11],[36.04,57.87,66.27,31.43,54.21,63.5]],"I":[[33.28,56.15,64.75,32.11,55.04,63.6],[34.73,57.56,65.93,32.79,55.85,64.56],[35.89,58.79,67.14,33.25,56.33,64.92],[36.94,59.74,68.06,33.39,56.68,65.12],[37.76,60.5,68.66,33.45,56.7,65.13],[38.24,60.82,69.03,33.33,56.6,65.15],[38.36,61.06,69.11,33.09,56.22,65.04],[38.43,60.95,68.89,32.61,55.46,64.66],[38.19,60.56,68.41,31.8,54.84,64.17],[37.43,59.59,67.9,31.06,53.94,63.31],[36.44,58.57,66.77,30.17,52.77,62.19]],"I+T":[[33.28,56.15,64.75,32.11,55.04,63.6],[34.88,57.72,66.02,32.83,55.95,64.66],[36.29,59.04,67.27,33.27,56.55,65.19],[37.33,59.97,68.22,33.52,56.93,65.7],[38.13,60.66,68.95,33.8,57.19,65.94],[38.7,61.07,69.4,33.79,57.24,66.05],[39.07,61.41,69.49,33.66,57.15,66.04],[39.11,61.4,69.36,33.62,56.81,65.95],[38.83,60.99,69.13,33.28,56.34,65.54],[38.27,60.3,68.5,32.82,55.73,65.18],[37.41,59.41,67.44,32.25,55.11,64.52]]},"flickr30k":{"old":[40.62,64.75,73.72,21.73,41.56,51.1],"new":[48.73,72.93,81.21,28.28,49.63,59.09],"T":[[40.62,64.75,73.72,21.73,41.56,51.1],[43.28,67.49,76.21,22.34,42.48,52.02],[45.51,69.54,77.99,22.82,43.09,52.63],[47.12,71.12,79.47,23.11,43.55,53.05],[48.15,72.18,80.4,23.33,43.71,53.26],[48.61,72.63,80.83,23.33,43.77,53.29],[48.61,72.56,80.78,23.21,43.64,53.13],[48.0,71.84,80.34,22.97,43.32,52.87],[46.84,70.67,79.44,22.6,42.84,52.37],[45.15,69.03,77.95,22.1,42.17,51.74],[42.89,66.8,75.77,21.49,41.35,50.92]],"I":[[40.62,64.75,73.72,21.73,41.56,51.1],[42.72,67.05,75.78,22.35,42.53,52.06],[44.51,68.94,77.54,22.77,43.04,52.65],[45.87,70.28,78.99,22.97,43.32,52.94],[46.97,71.25,79.59,23.0,43.38,53.02],[47.39,71.51,79.93,22.87,43.21,52.89],[47.21,71.31,79.83,22.62,42.83,52.5],[46.3,70.62,79.18,22.26,42.31,51.95],[45.14,69.43,78.09,21.64,41.53,51.15],[43.51,67.76,76.84,20.89,40.5,50.08],[41.18,65.64,74.91,19.99,39.26,48.75]],"I+T":[[40.62,64.75,73.72,21.73,41.56,51.1],[42.9,67.22,75.93,22.38,42.56,52.09],[44.82,69.15,77.65,22.89,43.25,52.8],[46.3,70.57,78.99,23.24,43.74,53.26],[47.37,71.53,79.85,23.44,43.99,53.53],[47.77,72.01,80.25,23.44,44.08,53.61],[47.63,71.68,80.15,23.34,43.95,53.48],[47.09,70.77,79.64,23.14,43.71,53.24],[45.92,69.66,78.55,22.83,43.28,52.83],[44.48,68.11,77.16,22.39,42.63,52.23],[42.44,66.22,75.22,21.8,41.86,51.52]]},"coco":{"old":[28.77,50.33,59.85,14.47,30.22,38.92],"new":[34.33,56.08,65.38,18.69,35.85,44.4],"T":[[28.77,50.33,59.85,14.47,30.22,38.92],[30.46,52.39,61.81,14.8,30.82,39.5],[31.82,53.83,63.13,15.05,31.22,39.92],[32.88,54.92,64.0,15.22,31.46,40.22],[33.53,55.6,64.75,15.27,31.56,40.36],[33.85,55.83,65.12,15.26,31.57,40.34],[33.8,55.86,65.08,15.16,31.46,40.2],[33.41,55.44,64.81,14.97,31.18,39.89],[32.62,54.51,63.95,14.76,30.78,39.48],[31.66,53.06,62.71,14.43,30.31,38.98],[30.28,51.35,61.07,14.03,29.72,38.33]],"I":[[28.77,50.33,59.85,14.47,30.22,38.92],[30.11,51.88,61.36,14.81,30.88,39.62],[31.22,53.19,62.42,15.06,31.23,39.98],[31.81,53.8,63.18,15.15,31.42,40.19],[32.31,54.16,63.64,15.14,31.4,40.21],[32.51,54.43,63.69,15.08,31.28,40.01],[32.24,54.11,63.36,14.87,30.98,39.75],[31.77,53.48,62.91,14.64,30.6,39.28],[31.1,52.37,61.82,14.26,30.04,38.65],[29.97,50.97,60.36,13.77,29.31,37.86],[28.71,49.28,58.58,13.11,28.44,36.8]],"I+T":[[28.77,50.33,59.85,14.47,30.22,38.92],[30.18,52.08,61.46,14.83,30.85,39.58],[31.48,53.55,62.76,15.06,31.31,40.06],[32.37,54.3,63.61,15.24,31.58,40.43],[32.95,54.98,64.27,15.3,31.7,40.57],[33.18,55.24,64.42,15.35,31.74,40.61],[33.31,55.26,64.43,15.25,31.66,40.48],[33.04,54.79,63.98,15.11,31.45,40.25],[32.32,53.95,63.22,14.85,31.12,39.85],[31.26,52.52,62.04,14.54,30.68,39.36],[29.95,50.99,60.34,14.16,30.17,38.75]]},"nocaps":{"old":[71.31,91.93,96.2,45.24,74.97,84.51],"new":[73.36,93.42,97.38,47.84,76.55,85.11],"T":[[71.31,91.93,96.2,45.24,74.97,84.51],[73.36,92.89,96.82,45.86,75.65,84.91],[73.98,93.53,97.07,46.36,76.13,85.24],[74.8,93.71,97.38,46.61,76.44,85.46],[75.64,93.96,97.47,46.65,76.52,85.57],[75.47,94.02,97.4,46.59,76.47,85.55],[74.87,93.78,97.18,46.4,76.22,85.46],[74.0,93.33,96.91,45.98,75.95,85.26],[73.22,92.93,96.98,45.46,75.42,84.95],[71.51,92.2,96.71,44.7,74.82,84.55],[69.22,91.16,96.07,43.92,74.22,83.97]],"I":[[71.31,91.93,96.2,45.24,74.97,84.51],[72.71,92.67,96.69,46.0,75.6,85.12],[73.44,92.89,97.13,46.35,76.04,85.39],[73.78,93.22,97.27,46.51,76.22,85.56],[73.8,93.31,97.36,46.49,76.24,85.64],[73.6,93.31,97.13,46.27,76.09,85.47],[72.76,93.13,97.04,45.85,75.87,85.31],[71.44,92.71,96.87,45.36,75.42,84.88],[70.09,91.91,96.44,44.56,74.77,84.32],[68.13,90.91,95.73,43.45,73.94,83.64],[65.91,89.22,94.91,42.16,72.73,82.77]],"I+T":[[71.31,91.93,96.2,45.24,74.97,84.51],[73.07,92.53,96.67,46.01,75.73,85.06],[73.93,93.24,97.02,46.48,76.25,85.5],[74.42,93.73,97.24,46.82,76.6,85.77],[74.69,93.73,97.36,46.98,76.9,85.86],[74.8,93.69,97.29,46.93,76.99,85.95],[74.6,93.51,97.18,46.75,76.84,85.89],[73.58,93.2,96.96,46.4,76.53,85.8],[72.56,92.67,96.84,45.93,76.1,85.57],[70.87,91.98,96.64,45.2,75.65,85.12],[69.16,90.89,96.18,44.41,74.94,84.63]]}};
+const S = { ds: 'flickr30k', dir: 0, sup: 'T', k: 0, a: 7 };
+const C = { old: '#d08a2e', blue: '#3a86c8', q: '#2e9c8a', cc: '#8a95b8', grey: '#8e99a8', grid: '#eee7da', ink: '#1e2b3a', muted: '#5f6b7b', bad: '#c9563f' };
+const NS = 'http://www.w3.org/2000/svg';
+const chart = document.getElementById('chart');
+const el = (tag, at, parent = chart) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); parent.appendChild(e); return e; };
+const txt = (x, y, s, at = {}) => { const e = el('text', Object.assign({ x, y }, at)); e.textContent = s; return e; };
+// alpha-hat: CC3M Recall@1 argmax for this support / direction (smallest alpha on ties, as in slerp_bc/table.py)
+const alphaHat = (sup, dir) => { const v = D.cc3m[sup].map(r => r[dir]); return v.indexOf(Math.max(...v)); };
+
+function draw() {
+  const m = S.dir + S.k, d = D[S.ds], curve = d[S.sup].map(r => r[m]);
+  const old = d.old[m], neu = d.new[m], ah = alphaHat(S.sup, S.dir);
+  const lo = Math.floor(Math.min(...curve, old) - 1.5), hi = Math.ceil(Math.max(...curve, old, neu) + 1.5);
+  const fs = Math.max(1, Math.min(2.8, 900 / (chart.getBoundingClientRect().width || 900)));   // font scale
+  const F = n => (n * fs).toFixed(1);
+  const x0 = 30 + 34 * fs, x1 = 870, y0 = 24, y1 = 340 - 24 * fs;
+  const X = a => x0 + a / 10 * (x1 - x0), Y = v => y1 - (v - lo) / (hi - lo) * (y1 - y0);
+  chart.textContent = '';
+  // grid
+  const step = (hi - lo) > 24 ? 10 : (hi - lo) > 10 ? 5 : (hi - lo) > 5 ? 2 : 1;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    el('line', { x1: x0, x2: x1, y1: Y(v), y2: Y(v), stroke: C.grid });
+    txt(x0 - 10, Y(v) + 4, v, { 'text-anchor': 'end', 'font-size': F(12), fill: C.muted });
+  }
+  for (let a = 0; a <= 10; a += (fs > 1.5 ? 2 : 1)) txt(X(a), y1 + 8 + 12 * fs, (a / 10).toFixed(1), { 'text-anchor': 'middle', 'font-size': F(12), fill: C.muted });
+  txt((x0 + x1) / 2, y1 + 22 + 18 * fs, fs > 1.3 ? 'SLERP weight α  (0 = old, 1 = SVD)' : 'SLERP weight α   (0 = old query, 1 = SVD-aligned new query)', { 'text-anchor': 'middle', 'font-size': F(13), fill: C.ink });
+  // references
+  el('line', { x1: x0, x2: x1, y1: Y(old), y2: Y(old), stroke: C.old, 'stroke-dasharray': '6 5', 'stroke-width': 1.6 });
+  txt(x1, Y(old) + 16, `old model ${old.toFixed(2)}`, { 'text-anchor': 'end', 'font-size': F(12), fill: C.old, 'font-weight': 600 });
+  el('line', { x1: x0, x2: x1, y1: Y(neu), y2: Y(neu), stroke: C.grey, 'stroke-dasharray': '6 5', 'stroke-width': 1.6 });
+  txt(x0 + 6, Y(neu) - 7, `new model, gallery re-indexed ${neu.toFixed(2)}`, { 'font-size': F(12), fill: C.grey, 'font-weight': 600 });
+  // alpha-hat
+  el('line', { x1: X(ah), x2: X(ah), y1: y0, y2: y1, stroke: C.q, 'stroke-dasharray': '4 4', 'stroke-width': 1.4 });
+  txt(X(ah) + 6, y0 + 12, `α̂ = ${(ah / 10).toFixed(1)} (CC3M)`, { 'font-size': F(12), fill: C.q, 'font-weight': 600 });
+  // curve
+  el('polyline', { points: curve.map((v, a) => `${X(a)},${Y(v)}`).join(' '), fill: 'none', stroke: C.q, 'stroke-width': 3, 'stroke-linejoin': 'round' });
+  curve.forEach((v, a) => el('circle', { cx: X(a), cy: Y(v), r: a === 0 || a === 10 ? 6 : 4, fill: a === 0 ? C.old : a === 10 ? C.blue : C.q, stroke: '#fff', 'stroke-width': 1.5 }));
+  // cursor
+  const v = curve[S.a];
+  el('line', { x1: X(S.a), x2: X(S.a), y1: Y(v), y2: y1, stroke: C.ink, 'stroke-width': 1, opacity: .35 });
+  el('circle', { cx: X(S.a), cy: Y(v), r: 9, fill: 'none', stroke: C.ink, 'stroke-width': 2 });
+  const lx = Math.min(Math.max(X(S.a), x0 + 40), x1 - 40);
+  const by = Y(v) - 16 - 24 * fs < y0 + 18 * fs ? Y(v) + 14 : Y(v) - 14 - 24 * fs;   // flip below if no room above
+  el('rect', { x: lx - 34 * fs, y: by, width: 68 * fs, height: 24 * fs, rx: 6, fill: '#fff', stroke: C.ink, 'stroke-width': 1 });
+  txt(lx, by + 17 * fs, v.toFixed(2), { 'text-anchor': 'middle', 'font-size': F(13), 'font-weight': 700, fill: C.ink });
+  // readout
+  const best = Math.max(...curve), bestA = curve.indexOf(best);
+  const ok = v > old;
+  const name = S.a === 0 ? 'old query' : S.a === 10 ? 'SVD alone' : 'SLERP';
+  document.getElementById('alphaVal').textContent = (S.a / 10).toFixed(1);
+  document.getElementById('readout').innerHTML =
+    `<span class="pill">${name} at α = ${(S.a / 10).toFixed(1)}: <b>${v.toFixed(2)}</b></span>` +
+    (S.a === 0 ? `<span class="pill">equal to the old system</span>` :
+      `<span class="pill ${ok ? 'ok' : 'no'}">${ok ? '✓ backward-compatible' : '× not compatible'} (old ${old.toFixed(2)})</span>`) +
+    `<span class="pill">best on this set: α = ${(bestA / 10).toFixed(1)} <span class="ar">→</span> ${best.toFixed(2)}</span>`;
+}
+document.querySelectorAll('.seg').forEach(seg => {
+  const key = seg.dataset.key;
+  const sync = () => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(S[key]))));
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    S[key] = (key === 'dir' || key === 'k') ? +b.dataset.v : b.dataset.v;
+    if (key === 'sup' || key === 'dir') { S.a = alphaHat(S.sup, S.dir); document.getElementById('alpha').value = S.a; }
+    sync(); draw();
+  });
+  sync();
+});
+document.getElementById('alpha').addEventListener('input', e => { S.a = +e.target.value; draw(); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(draw, 120); });
+draw();
+</script>
+</body>
+</html>
